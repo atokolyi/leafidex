@@ -8,7 +8,6 @@ setup(name='TheSpliceGirls',
       author_email='alex.tokolyi@gmail.com',
       license='gplv3',
       packages=['TheSpliceGirls'],
-      package_data={'TheSpliceGirls' :['TheSpliceGirls/data/*']},
       install_requires=[
           'pandas','pyranges1','requests'
       ],
