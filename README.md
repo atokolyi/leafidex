@@ -2,9 +2,7 @@
 An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/))
 ## Installation
 ```sh
-git clone https://github.com/atokolyi/TheSpliceGirls/
-cd TheSpliceGirls
-pip install .
+pip install git+https://github.com/atokolyi/TheSpliceGirls.git
 ```
 ## Usage
 Load the library
