@@ -2,7 +2,7 @@
 An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/))
 ## Installation
 ```sh
-pip install git+https://github.com/atokolyi/TheSpliceGirls.git
+pip install -e git+https://github.com/atokolyi/TheSpliceGirls.git#egg=TheSpliceGirls
 ```
 ## Usage
 Load the library
@@ -16,7 +16,7 @@ tsg_update_cache(gencode=46)
 Import test data or a vector of splice junction IDs (e.g. in format "10:112426859:112427218:clu_12345_+")
 ```py
 from importlib_resources import files
-splices = files('TheSpliceGirls.data').joinpath('sample.txt').read_text().rstrip().split('\n')
+splices = files('TheSpliceGirls').joinpath('sample.txt').read_text().rstrip().split('\n')
 ```
 Annotate splice events
 ```py
