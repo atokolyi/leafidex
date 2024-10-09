@@ -5,6 +5,7 @@ import requests
 import pickle as pk
 import time
 import datetime as dt
+import numpy as np
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -98,7 +99,9 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
     splices_df = pd.concat([splices_df, splices_split], axis=1)
     splices_df.columns = ["id", "chr", "start", "end", "clu"]
     splices_df['strand'] = splices_df['clu'].str.split("_").str[2]
-    
+
+    # Should only add chr to those without
+    # So first remove?
     if not splices_df['chr'].str.contains("chr").all():
         splices_df['chr'] = "chr" + splices_df['chr']
     
@@ -112,7 +115,7 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
     if stranded:
         splices_df.loc[splices_df['strand'] == "-", 'start_stranded'] = splices_df['end']
         splices_df.loc[splices_df['strand'] == "-", 'end_stranded'] = splices_df['start']
-
+    
     print("\n\tAnnotating gene body information..", end="")
     
     gff_genes = gff_data[gff_data.Feature == "gene"]
@@ -130,73 +133,87 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
     splices_ranges = pr.PyRanges(splices_ranges)
     gff_genes.loc[:,'gene_strand'] = gff_genes['Strand'].values
     
-    ov = splices_ranges.join_ranges(gff_genes,report_overlap=True,strand_behavior="ignore")
-    ov['splice_length'] = ov.End-ov.Start
-    ov['same_strand'] = ov.Strand==ov.gene_strand
-    ov['gene_full_match'] = (ov.Overlap==ov.splice_length) & ov.same_strand
-
-    splices_df['gene_name'] = ""
-    splices_df['gene_id'] = ""
-    splices_df['gene_type'] = ""
-    splices_df['gene_opposite_strand'] = False
+    ov = splices_ranges.join_ranges(gff_genes, report_overlap=True, strand_behavior="ignore")
+    ov['splice_length'] = ov.End - ov.Start
+    ov['same_strand'] = ov.Strand == ov.gene_strand
+    ov['gene_full_match'] = (ov.Overlap == ov.splice_length) & ov.same_strand
+    ov['is_protein_coding'] = ov['gene_type'] == "protein_coding"
+    # Sort by 'is_protein_coding' (protein coding genes take priority)
+    ov = ov.sort_values('is_protein_coding', ascending=False)
+    # Initialize gene-related columns in splices_df
+    splices_df['gene_name'] = None
+    splices_df['gene_id'] = None
+    splices_df['gene_type'] = None
+    splices_df['gene_full_match'] = None
+    splices_df['gene_opposite_strand'] = None
 
     splices_df.index = splices_df['id']
-    ov['is_protein_coding'] = ov['gene_type']=="protein_coding"
-    ov = ov.sort_values('is_protein_coding',ascending=False)
-
-    for sid in splices_df.index:
-        splices_df.loc[sid,'gene_name'] = ov[ov['gene_full_match'] & (ov['title']==sid)]['gene_name'].str.cat(sep=",")
-        splices_df.loc[sid,'gene_id'] = ov[ov['gene_full_match'] & (ov['title']==sid)]['gene_id'].str.cat(sep=",")
-        splices_df.loc[sid,'gene_type'] = ov[ov['gene_full_match'] & (ov['title']==sid)]['gene_type'].str.cat(sep=",")
-
-
-    if any(splices_df['gene_name']==""):
-        for sid in splices_df.index:
-            if splices_df.loc[sid,'gene_name']=="":
-                splices_df.loc[sid,'gene_name'] = ov[ov['same_strand'] & (ov['title']==sid)]['gene_name'].str.cat(sep=",")
-                splices_df.loc[sid,'gene_id'] = ov[ov['same_strand'] & (ov['title']==sid)]['gene_id'].str.cat(sep=",")
-                splices_df.loc[sid,'gene_type'] = ov[ov['same_strand'] & (ov['title']==sid)]['gene_type'].str.cat(sep=",")
-
-
-    if any(splices_df['gene_name']==""):
-        for sid in splices_df.index:
-            if splices_df.loc[sid,'gene_name']=="":
-                splices_df.loc[sid,'gene_name'] = ov[ov['title']==sid]['gene_name'].str.cat(sep=",")
-                splices_df.loc[sid,'gene_id'] = ov[ov['title']==sid]['gene_id'].str.cat(sep=",")
-                splices_df.loc[sid,'gene_type'] = ov[ov['title']==sid]['gene_type'].str.cat(sep=",")
-                splices_df.loc[sid,'gene_opposite_strand'] = True
+    # Step 1: Apply gene_full_match to the entire DataFrame
+    gene_full_match_df = ov[ov['gene_full_match']].groupby('title').agg({
+        'gene_name': lambda x: ",".join(x),
+        'gene_id': lambda x: ",".join(x),
+        'gene_type': lambda x: ",".join(x),
+    }).reset_index()
+    gene_full_match_df['gene_full_match'] = True
+    gene_full_match_df['gene_opposite_strand'] = False
+    splices_df.update(gene_full_match_df.set_index('title'))
+    
+    # Step 2: For missing gene_full_match, fallback to same_strand
+    same_strand_df = ov[ov['same_strand']].groupby('title').agg({
+        'gene_name': lambda x: ",".join(x),
+        'gene_id': lambda x: ",".join(x),
+        'gene_type': lambda x: ",".join(x)
+    }).reset_index()
+    same_strand_df['gene_full_match'] = False
+    same_strand_df['gene_opposite_strand'] = False
+    # Fill missing gene info with same_strand matches
+    splices_df.update(same_strand_df.set_index('title'),overwrite=False)
+    
+    # Step 3: For missing gene info, fallback to any overlap
+    any_overlap_df = ov.groupby('title').agg({
+        'gene_name': lambda x: ",".join(x),
+        'gene_id': lambda x: ",".join(x),
+        'gene_type': lambda x: ",".join(x)
+    }).reset_index()
+    any_overlap_df['gene_full_match'] = False
+    any_overlap_df['gene_opposite_strand'] = True
+    
+    # Update remaining missing values
+    splices_df.update(any_overlap_df.set_index('title'),overwrite=False)
+    splices_df.fillna({'gene_name': "", 'gene_id': "", 'gene_type': "", 'gene_full_match': False, 'gene_opposite_strand': False}, inplace=True)
 
     print("\n\tAnnotating exon matches..", end="")
 
-    
-    splices_df['overlaps_exon'] = ''
-    splices_df['overlaps_cds'] = ''
-    splices_df['overlaps_3p_utr'] = ''
-    splices_df['overlaps_5p_utr'] = ''
+    # Collapse exon ranges before to speed up?
+    # How much time overlap vs the loop layer?
+    ov_exon = set(splices_ranges.join_ranges(gff_exons,report_overlap=True,strand_behavior="auto")['title'].values)
+    ov_cds = set(splices_ranges.join_ranges(gff_cds,report_overlap=False,strand_behavior="auto")['title'].values)
+    ov_3p = set(splices_ranges.join_ranges(gff_3p_utr,report_overlap=True,strand_behavior="auto")['title'].values)
+    ov_5p = set(splices_ranges.join_ranges(gff_5p_utr,report_overlap=True,strand_behavior="auto")['title'].values)
 
-    ov_exon = splices_ranges.join_ranges(gff_exons,report_overlap=True,strand_behavior="auto")
-    ov_cds = splices_ranges.join_ranges(gff_cds,report_overlap=True,strand_behavior="auto")
-    ov_3p = splices_ranges.join_ranges(gff_3p_utr,report_overlap=True,strand_behavior="auto")
-    ov_5p = splices_ranges.join_ranges(gff_5p_utr,report_overlap=True,strand_behavior="auto")
-
-    for sid in splices_df.index:
-        splices_df.loc[sid,'overlaps_exon'] = sid in ov_exon['title'].values
-        splices_df.loc[sid,'overlaps_cds'] = sid in ov_cds['title'].values
-        splices_df.loc[sid,'overlaps_3p_utr'] = sid in ov_3p['title'].values
-        splices_df.loc[sid,'overlaps_5p_utr'] = sid in ov_5p['title'].values
+    splices_df['overlaps_exon'] = splices_df.index.isin(ov_exon)
+    splices_df['overlaps_cds'] = splices_df.index.isin(ov_cds)
+    splices_df['overlaps_3p_utr'] = splices_df.index.isin(ov_3p)
+    splices_df['overlaps_5p_utr'] = splices_df.index.isin(ov_5p)
 
 
     splices_df['bp_excised'] = (splices_df['end'].astype('int')-splices_df['start'].astype('int'))-1
 
-    gff_exons.loc[:,'start_stranded'] = gff_exons['Start']
-    gff_exons.loc[gff_exons["Strand"]=="-",'start_stranded'] = gff_exons[gff_exons["Strand"]=="-"]['End']
-    gff_exons.loc[:,'end_stranded'] = gff_exons['End']
-    gff_exons.loc[gff_exons["Strand"]=="-",'end_stranded'] = gff_exons[gff_exons["Strand"]=="-"]['Start']
-    gff_exons['chrstart'] = gff_exons['Chromosome'] + ":" + gff_exons['start_stranded'].astype('str')
-    gff_exons['chrend'] = gff_exons['Chromosome'] + ":" + gff_exons['end_stranded'].astype('str')
+    gff_exons['start_stranded'] = np.where(gff_exons["Strand"] == "-", gff_exons['End'], gff_exons['Start'])
+    gff_exons['end_stranded'] = np.where(gff_exons["Strand"] == "-", gff_exons['Start'], gff_exons['End'])
     
-    splices_df['p5_exon_overlap'] = [x in gff_exons['chrend'].values for x in (splices_df['chr'] + ":" + splices_df['start_stranded'])]
-    splices_df['p3_exon_overlap'] = [x in gff_exons['chrstart'].values for x in (splices_df['chr'] + ":" + splices_df['end_stranded'])]
+    gff_exons['chrstart'] = gff_exons['Chromosome'] + ":" + gff_exons['start_stranded'].astype(str)
+    gff_exons['chrend'] = gff_exons['Chromosome'] + ":" + gff_exons['end_stranded'].astype(str)
+
+    chrend_set = set(gff_exons['chrend'])
+    chrstart_set = set(gff_exons['chrstart'])
+
+    chr_plus_start_stranded = splices_df['chr'] + ":" + splices_df['start_stranded'].astype(str)
+    chr_plus_end_stranded = splices_df['chr'] + ":" + splices_df['end_stranded'].astype(str)
+    
+    splices_df['p5_exon_overlap'] = chr_plus_start_stranded.isin(chrend_set)
+    splices_df['p3_exon_overlap'] = chr_plus_end_stranded.isin(chrstart_set)
+    
     splices_df['p5_and_p3_exon_overlap'] = splices_df['p5_exon_overlap'] & splices_df['p3_exon_overlap']
     splices_df['p5_or_p3_exon_overlap'] = splices_df['p5_exon_overlap'] | splices_df['p3_exon_overlap']
 
@@ -215,49 +232,47 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
 
     bed_file = f"unipLocTransMemb.bed"
     bed_file = load_bed(bed_file)
-    ov_tm = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
+    ov_tm = set(splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocCytopl.bed"
     bed_file = load_bed(bed_file)
-    ov_cy = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
+    ov_cy = set(splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocExtra.bed"
     bed_file = load_bed(bed_file)
-    ov_ex = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
+    ov_ex = set(splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocSignal.bed"
     bed_file = load_bed(bed_file)
-    ov_si = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
-    
-    splices_df['unipLocTransMemb'] = ""
-    splices_df['unipLocCytopl'] = ""
-    splices_df['unipLocExtra'] = ""
-    splices_df['unipLocSignal'] = ""
+    ov_si = set(splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")['title'].values)
 
-    for sid in splices_df.index:
-        splices_df.loc[sid,'unipLocTransMemb'] = (sid in ov_tm['title'].values) & splices_df.loc[sid,'overlaps_cds']
-        splices_df.loc[sid,'unipLocCytopl'] = (sid in ov_cy['title'].values) & splices_df.loc[sid,'overlaps_cds']
-        splices_df.loc[sid,'unipLocExtra'] = (sid in ov_ex['title'].values) & splices_df.loc[sid,'overlaps_cds']
-        splices_df.loc[sid,'unipLocSignal'] = (sid in ov_si['title'].values) & splices_df.loc[sid,'overlaps_cds']
+    splices_df['unipLocTransMemb'] = splices_df.index.isin(ov_tm) & splices_df['overlaps_cds']
+    splices_df['unipLocCytopl'] = splices_df.index.isin(ov_cy) & splices_df['overlaps_cds']
+    splices_df['unipLocExtra'] = splices_df.index.isin(ov_ex) & splices_df['overlaps_cds']
+    splices_df['unipLocSignal'] = splices_df.index.isin(ov_si) & splices_df['overlaps_cds']
 
 
     print("\n\tAnnotating pfam and uniprot domains..", end="")
-
-    splices_df['unipDomain'] = ""
-    splices_df['pfamDomain'] = ""
+    splices_df.index = splices_df['id']
     
     bed_file = f"unipDomain.bed"
     bed_file = load_bed(bed_file)
     ov_unip = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
+    ov_unip = ov_unip.groupby('title')['Name'].apply(lambda x: ",".join(x)).reset_index()
+    splices_df = splices_df.merge(ov_unip, left_index=True, right_on='title', how='left')
+    splices_df['unipDomain'] = splices_df['Name'].fillna("")
+    splices_df.drop(columns=['title', 'Name'], inplace=True)
+    splices_df.index = splices_df['id']
     
     bed_file = f"ucscGenePfam.txt.gz"
     bed_file = load_bed(bed_file,bump=1)
     ov_pfam = splices_ranges.join_ranges(bed_file,report_overlap=True,strand_behavior="auto")
-    
-    for sid in splices_df.index:
-        splices_df.loc[sid,'unipDomain'] = ov_unip[(ov_unip['title']==sid)]['Name'].str.cat(sep=",")
-        splices_df.loc[sid,'pfamDomain'] = ov_pfam[(ov_pfam['title']==sid)]['Name'].str.cat(sep=",")
-    
+    ov_pfam = ov_pfam.groupby('title')['Name'].apply(lambda x: ",".join(x)).reset_index()
+    splices_df = splices_df.merge(ov_pfam, left_index=True, right_on='title', how='left')
+    splices_df['pfamDomain'] = splices_df['Name'].fillna("")
+    splices_df.drop(columns=['title', 'Name'], inplace=True)
+    splices_df.index = splices_df['id']
+
     splices_df.loc[splices_df["overlaps_cds"]==False,"unipDomain"] = ""
     splices_df.loc[splices_df["overlaps_cds"]==False,"pfamDomain"] = ""
 
