@@ -118,11 +118,11 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
     
     print("\n\tAnnotating gene body information..", end="")
     
-    gff_genes = gff_data[gff_data.Feature == "gene"]
-    gff_exons = gff_data[gff_data.Feature == "exon"]
-    gff_cds = gff_data[gff_data.Feature == "CDS"]
-    gff_3p_utr = gff_data[gff_data.Feature == "three_prime_UTR"]
-    gff_5p_utr = gff_data[gff_data.Feature == "five_prime_UTR"]
+    gff_genes = gff_data[gff_data.Feature == "gene"].reset_index(drop=True)
+    gff_exons = gff_data[gff_data.Feature == "exon"].reset_index(drop=True)
+    gff_cds = gff_data[gff_data.Feature == "CDS"].reset_index(drop=True)
+    gff_3p_utr = gff_data[gff_data.Feature == "three_prime_UTR"].reset_index(drop=True)
+    gff_5p_utr = gff_data[gff_data.Feature == "five_prime_UTR"].reset_index(drop=True)
 
     splices_ranges = pd.DataFrame(
     {'Chromosome':splices_df["chr"],
@@ -233,7 +233,7 @@ def tsg_annotate(splices,build="hg38",gencode="46"):
         bed_data['len'] = bed_data['End']-bed_data['Start']
         bed_data = bed_data[bed_data['len']>0]
         bed_data = bed_data[bed_data.Chromosome.isin(valid_chr)]
-        return(bed_data)
+        return(bed_data.reset_index(drop=True))
 
     print("\n\tAnnotating protein localizations..", end="")
 
