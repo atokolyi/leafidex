@@ -5,3 +5,6 @@
 /*.egg-info
 build
 *.old
+*.tsv
+src/
+*tmp*

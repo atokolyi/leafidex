@@ -9,6 +9,6 @@ setup(name='TheSpliceGirls',
       license='gplv3',
       packages=['TheSpliceGirls'],
       install_requires=[
-          'pandas','pyranges1','requests'
+          'pandas','pyranges1','requests','numpy'
       ],
       zip_safe=False)
