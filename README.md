@@ -1,5 +1,5 @@
 # leafidex
-An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/)), formerly TheSpliceGirls
+<img src="./docs/icon.svg" width="300"> An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/)), formerly TheSpliceGirls
 ## Installation
 ```sh
 pip install -e git+https://github.com/atokolyi/leafidex.git#egg=leafidex
