@@ -1,30 +1,30 @@
-# TheSpliceGirls
-An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/))
+# leafidex
+An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/)), formerly TheSpliceGirls
 ## Installation
 ```sh
-pip install -e git+https://github.com/atokolyi/TheSpliceGirls.git#egg=TheSpliceGirls
+pip install -e git+https://github.com/atokolyi/leafidex.git#egg=leafidex
 ```
 ## Usage
 Load the library
 ```py
-from TheSpliceGirls import *
+import leafidex as ldex
 ```
 Download/update the annotation cache (with desired gencode version, default is 46).
 ```py
-tsg_update_cache(gencode=46)
+ldex.update_cache(gencode=46)
 ```
 Import test data or a vector of splice junction IDs (e.g. in format "10:112426859:112427218:clu_12345_+")
 ```py
 from importlib_resources import files
-splices = files('TheSpliceGirls').joinpath('sample.txt').read_text().rstrip().split('\n')
+splices = files('leafidex').joinpath('sample.txt').read_text().rstrip().split('\n')
 ```
 Annotate splice events
 ```py
-annots = tsg_annotate(splices)
+annots = ldex.annotate(splices)
 ```
 
 ## Description of output
-The above function (`tsg_annotate`) will return a dataframe with the following columns:
+The above function (`annotate`) will return a dataframe with the following columns:
 Name | Description
 --- | ---
 ID | The original identifier of the splice event

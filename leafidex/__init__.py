@@ -12,7 +12,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas.errors import SettingWithCopyWarning
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 
-def tsg_update_cache(build="hg38",gencode="46"):
+def update_cache(build="hg38",gencode="46"):
     # Set the timeout
     # Can we pickle the GFF for faster loading later?
 
@@ -78,7 +78,7 @@ def tsg_update_cache(build="hg38",gencode="46"):
     
 
 
-def tsg_annotate(splices,build="hg38",gencode="46"):
+def annotate(splices,build="hg38",gencode="46"):
     data_file = f"gff_data.v{gencode}.pkl"
     cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "thesplicegirls-py")
     if not os.path.exists(os.path.join(cache_dir, data_file)):
