@@ -1,5 +1,5 @@
 # leafidex
-<img align="left" src="./docs/icon.svg" width="200"> An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/)), formerly TheSpliceGirls
+<img src="./docs/icon.svg" width="200"> An annotation pipeline for transcript splicing events (i.e. from [leafcutter](https://davidaknowles.github.io/leafcutter/)), formerly TheSpliceGirls.
 ## Installation
 ```sh
 pip install -e git+https://github.com/atokolyi/leafidex.git#egg=leafidex
@@ -15,8 +15,7 @@ ldex.update_cache(gencode=46)
 ```
 Import test data or a vector of splice junction IDs (e.g. in format "10:112426859:112427218:clu_12345_+")
 ```py
-from importlib_resources import files
-splices = files('leafidex').joinpath('sample.txt').read_text().rstrip().split('\n')
+splices = ldex.get_test_splices()
 ```
 Annotate splice events
 ```py

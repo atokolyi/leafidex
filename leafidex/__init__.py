@@ -11,6 +11,11 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas.errors import SettingWithCopyWarning
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+from importlib_resources import files
+
+def get_test_splices():
+    splices = files('leafidex').joinpath('sample.txt').read_text().rstrip().split('\n')
+    return(splices)
 
 def update_cache(build="hg38",gencode="46"):
     # Set the timeout
@@ -18,7 +23,7 @@ def update_cache(build="hg38",gencode="46"):
 
     requests_timeout = 6000  # seconds
 
-    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "thesplicegirls-py")
+    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "leafidex-py")
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
@@ -80,7 +85,7 @@ def update_cache(build="hg38",gencode="46"):
 
 def annotate(splices,build="hg38",gencode="46"):
     data_file = f"gff_data.v{gencode}.pkl"
-    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "thesplicegirls-py")
+    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "leafidex-py")
     if not os.path.exists(os.path.join(cache_dir, data_file)):
         print("No cache found.. ",end="")
         tsg_update_cache(build=build,gencode=gencode)
