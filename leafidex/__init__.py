@@ -11,10 +11,10 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas.errors import SettingWithCopyWarning
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
-from importlib_resources import files
+import importlib.resources as ilr
 
 def get_test_splices():
-    splices = files('leafidex').joinpath('sample.txt').read_text().rstrip().split('\n')
+    splices = ilr.files('leafidex').joinpath('sample.txt').read_text().rstrip().split('\n')
     return(splices)
 
 def update_cache(build="hg38",gencode="46"):
