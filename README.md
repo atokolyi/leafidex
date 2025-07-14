@@ -4,7 +4,7 @@
 ```sh
 pip install -e git+https://github.com/atokolyi/leafidex.git#egg=leafidex
 ```
-<br>
+<br/>
 ## Usage
 Load the library
 ```py
