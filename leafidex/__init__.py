@@ -138,7 +138,7 @@ def annotate(splices,build="hg38",gencode="46"):
     splices_ranges = pr.PyRanges(splices_ranges)
     gff_genes.loc[:,'gene_strand'] = gff_genes['Strand'].values
     
-    ov = splices_ranges.join_ranges(gff_genes, report_overlap_column="Overlap", strand_behavior="ignore")
+    ov = splices_ranges.join_overlaps(gff_genes, report_overlap_column="Overlap", strand_behavior="ignore")
     ov['splice_length'] = ov.End - ov.Start
     ov['same_strand'] = ov.Strand == ov.gene_strand
     ov['gene_full_match'] = (ov.Overlap == ov.splice_length) & ov.same_strand
@@ -191,16 +191,16 @@ def annotate(splices,build="hg38",gencode="46"):
 
     # Collapse exon ranges before to speed up?
     # How much time overlap vs the loop layer?
-    ov_exon = set(splices_ranges.join_ranges(gff_exons,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_exon = set(splices_ranges.join_overlaps(gff_exons,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
 
     # Shoulda also make another category for intra-cds, i.e. excises just a part of it
-    ov_cds = set(splices_ranges.join_ranges(gff_cds,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
-    ov_cds_full = splices_ranges.join_ranges(gff_cds,report_overlap_column="Overlap",strand_behavior="auto")
+    ov_cds = set(splices_ranges.join_overlaps(gff_cds,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_cds_full = splices_ranges.join_overlaps(gff_cds,report_overlap_column="Overlap",strand_behavior="auto")
     ov_cds_full['bp_excised'] = (ov_cds_full['End']-ov_cds_full['Start']) # Deliberately not +1 to match with pr "Overlap"
     ov_cds_intra = set(ov_cds_full[ov_cds_full['Overlap']==ov_cds_full['bp_excised']]['title'].values)
 
-    ov_3p = set(splices_ranges.join_ranges(gff_3p_utr,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
-    ov_5p = set(splices_ranges.join_ranges(gff_5p_utr,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_3p = set(splices_ranges.join_overlaps(gff_3p_utr,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_5p = set(splices_ranges.join_overlaps(gff_5p_utr,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
 
     splices_df['overlaps_exon'] = splices_df.index.isin(ov_exon)
     splices_df['overlaps_cds'] = splices_df.index.isin(ov_cds)
@@ -244,19 +244,19 @@ def annotate(splices,build="hg38",gencode="46"):
 
     bed_file = f"unipLocTransMemb.bed"
     bed_file = load_bed(bed_file)
-    ov_tm = set(splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_tm = set(splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocCytopl.bed"
     bed_file = load_bed(bed_file)
-    ov_cy = set(splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_cy = set(splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocExtra.bed"
     bed_file = load_bed(bed_file)
-    ov_ex = set(splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_ex = set(splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
     
     bed_file = f"unipLocSignal.bed"
     bed_file = load_bed(bed_file)
-    ov_si = set(splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
+    ov_si = set(splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")['title'].values)
 
     splices_df['unipLocTransMemb'] = splices_df.index.isin(ov_tm) & splices_df['overlaps_cds']
     splices_df['unipLocCytopl'] = splices_df.index.isin(ov_cy) & splices_df['overlaps_cds']
@@ -269,7 +269,7 @@ def annotate(splices,build="hg38",gencode="46"):
     
     bed_file = f"unipDomain.bed"
     bed_file = load_bed(bed_file)
-    ov_unip = splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")
+    ov_unip = splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")
     ov_unip = ov_unip.groupby('title')['Name'].apply(lambda x: ",".join(x)).reset_index()
     splices_df = splices_df.merge(ov_unip, left_index=True, right_on='title', how='left')
     splices_df['unipDomain'] = splices_df['Name'].fillna("")
@@ -278,7 +278,7 @@ def annotate(splices,build="hg38",gencode="46"):
     
     bed_file = f"ucscGenePfam.txt.gz"
     bed_file = load_bed(bed_file,bump=1)
-    ov_pfam = splices_ranges.join_ranges(bed_file,report_overlap_column="Overlap",strand_behavior="auto")
+    ov_pfam = splices_ranges.join_overlaps(bed_file,report_overlap_column="Overlap",strand_behavior="auto")
     ov_pfam = ov_pfam.groupby('title')['Name'].apply(lambda x: ",".join(x)).reset_index()
     splices_df = splices_df.merge(ov_pfam, left_index=True, right_on='title', how='left')
     splices_df['pfamDomain'] = splices_df['Name'].fillna("")
